@@ -1,36 +1,29 @@
-from pydantic import BaseModel
-from typing import List
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class Policy(BaseModel):
-
     id: str
-
     source: str
 
     title: str
+    organization: Optional[str] = None
+    description: Optional[str] = None
+    detail_url: Optional[str] = None
 
-    organization: str
+    regions: list[str] = Field(default_factory=list)
+    targets: list[str] = Field(default_factory=list)
+    support_types: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
 
-    description: str
+    age_min: Optional[int] = None
+    age_max: Optional[int] = None
 
-    detail_url: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
 
-    region: List[str]
+    required_documents: list[str] = Field(default_factory=list)
 
-    target: List[str]
-
-    support_types: List[str]
-
-    age_min: Optional[int]
-
-    age_max: Optional[int]
-
-    start_date: Optional[str]
-
-    end_date: Optional[str]
-
-    required_documents: List[str]
-
-    keywords: List[str]
+    original_target_text: Optional[str] = None
+    original_period_text: Optional[str] = None
