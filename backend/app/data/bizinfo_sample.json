@@ -1,0 +1,22 @@
+[
+  {
+    "pblancId": "BIZ-2026-001",
+    "pblancNm": "2026년 청년 AI 창업 지원사업",
+    "jrsdInsttNm": "중소벤처기업부",
+    "reqstBeginEndDe": "20260701 ~ 20260820",
+    "trgetNm": "만 19세 이상 39세 이하 대전광역시 거주 예비창업자",
+    "bsnsSumryCn": "AI 기반 창업 아이디어를 보유한 청년에게 사업화 자금과 교육을 지원합니다.",
+    "supportAmount": "최대 1,000만 원",
+    "detailUrl": "https://example.com/policy/1"
+  },
+  {
+    "pblancId": "BIZ-2026-002",
+    "pblancNm": "대학생 디지털 창업 교육 지원",
+    "jrsdInsttNm": "창업진흥원",
+    "reqstBeginEndDe": "20260710 ~ 20260810",
+    "trgetNm": "전국 대학 재학생 및 휴학생",
+    "bsnsSumryCn": "디지털 분야 창업 교육과 멘토링을 지원합니다.",
+    "supportAmount": "교육 및 멘토링 제공",
+    "detailUrl": "https://example.com/policy/2"
+  }
+]
