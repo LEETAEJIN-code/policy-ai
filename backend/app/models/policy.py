@@ -1,53 +1,36 @@
-from datetime import date
-from typing import List, Optional
-
-from pydantic import BaseModel, Field
-
-
-class ApplicationPeriod(BaseModel):
-    start: Optional[date] = None
-    end: Optional[date] = None
-    always_open: bool = False
-
-
-class AgeCondition(BaseModel):
-    min_age: Optional[int] = None
-    max_age: Optional[int] = None
-    status: str = "unknown"
-
-
-class SupportInformation(BaseModel):
-    types: List[str] = Field(default_factory=list)
-    amount_text: Optional[str] = None
+from pydantic import BaseModel
+from typing import List
+from typing import Optional
 
 
 class Policy(BaseModel):
-    id: str
-    title: str
-    summary: Optional[str] = None
 
-    organization: Optional[str] = None
+    id: str
 
     source: str
-    source_id: Optional[str] = None
-    source_url: Optional[str] = None
 
-    application_period: ApplicationPeriod = Field(
-        default_factory=ApplicationPeriod
-    )
+    title: str
 
-    regions: List[str] = Field(default_factory=list)
-    target_groups: List[str] = Field(default_factory=list)
-    categories: List[str] = Field(default_factory=list)
+    organization: str
 
-    age_condition: AgeCondition = Field(
-        default_factory=AgeCondition
-    )
+    description: str
 
-    support: SupportInformation = Field(
-        default_factory=SupportInformation
-    )
+    detail_url: str
 
-    required_documents: List[str] = Field(default_factory=list)
+    region: List[str]
 
-    original_target_text: Optional[str] = None
+    target: List[str]
+
+    support_types: List[str]
+
+    age_min: Optional[int]
+
+    age_max: Optional[int]
+
+    start_date: Optional[str]
+
+    end_date: Optional[str]
+
+    required_documents: List[str]
+
+    keywords: List[str]
