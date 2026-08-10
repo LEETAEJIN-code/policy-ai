@@ -98,13 +98,22 @@ class PolicyService:
         return policies
 
     async def get_all_policies(
-    self,
-    page: int = 1,
-    per_page: int = 20,
-    force_refresh: bool = False,
-) -> list[Policy]:
-        if not force_refresh and self.is_cache_valid():
-            print("캐시된 정책 데이터를 반환합니다.")
+        self,
+        page: int = 1,
+        per_page: int = 20,
+        force_refresh: bool = False,
+        update_cache: bool = True,
+    ) -> list[Policy]:
+
+        if (
+            update_cache
+            and not force_refresh
+            and self.is_cache_valid()
+        ):
+            print(
+                "캐시된 정책 데이터를 반환합니다."
+            )
+
             return self.policy_cache
 
         results = await asyncio.gather(
@@ -122,40 +131,64 @@ class PolicyService:
         all_policies: list[Policy] = []
 
         for result in results:
-            if isinstance(result, Exception):
+            if isinstance(
+                result,
+                Exception,
+            ):
                 print(
                     "정책 데이터 수집 실패:",
                     repr(result),
                 )
+
                 continue
 
-            all_policies.extend(result)
+            all_policies.extend(
+                result
+            )
 
-        unique_policies: dict[str, Policy] = {}
+        unique_policies: dict[
+            str,
+            Policy,
+        ] = {}
 
         for policy in all_policies:
-            unique_key = f"{policy.source}:{policy.id}"
-            unique_policies[unique_key] = policy
+            unique_key = (
+                f"{policy.source}:"
+                f"{policy.id}"
+            )
 
-        policies = list(unique_policies.values())
+            unique_policies[
+                unique_key
+            ] = policy
+
+        policies = list(
+            unique_policies.values()
+        )
 
         policies.sort(
-            key=lambda policy: policy.start_date or "",
+            key=lambda policy:
+                policy.start_date or "",
             reverse=True,
         )
 
-        self.policy_cache = policies
+        # 일반 정책 조회에서만 캐시 갱신
+        # 전체 동기화에서는 페이지마다
+        # 캐시를 덮어쓰지 않는다.
+        if update_cache:
+            self.policy_cache = policies
 
-        self.cache_updated_at = datetime.now(
-            timezone.utc,
-        )
-        print(
-            "정책 캐시 갱신 완료:",
-            self.cache_updated_at,
-        )
+            self.cache_updated_at = (
+                datetime.now(
+                    timezone.utc,
+                )
+            )
+
+            print(
+                "정책 캐시 갱신 완료:",
+                self.cache_updated_at,
+            )
 
         return policies
-
     def extract_items(
         self,
         raw_data: Any,
