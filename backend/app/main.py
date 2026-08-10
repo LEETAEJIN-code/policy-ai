@@ -1,16 +1,41 @@
+import os
+
 import httpx
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+)
+from fastapi.middleware.cors import (
+    CORSMiddleware,
+)
 
-from app.api.admin import router as admin_router
-from app.api.bookmark import router as bookmark_router
-from app.api.policies import router as policies_router
-from app.api.recommend import router as recommend_router
-from app.api.sync import router as sync_router
-from app.collectors.bizinfo_collector import BizInfoCollector
-from app.collectors.kstartup_collector import KStartupCollector
-from app.core.config import BIZINFO_API_KEY, KSTARTUP_API_KEY
+from app.api.admin import (
+    router as admin_router,
+)
+from app.api.bookmark import (
+    router as bookmark_router,
+)
+from app.api.policies import (
+    router as policies_router,
+)
+from app.api.recommend import (
+    router as recommend_router,
+)
+from app.api.sync import (
+    router as sync_router,
+)
+from app.collectors.bizinfo_collector import (
+    BizInfoCollector,
+)
+from app.collectors.kstartup_collector import (
+    KStartupCollector,
+)
+from app.core.config import (
+    BIZINFO_API_KEY,
+    KSTARTUP_API_KEY,
+)
 from app.database import create_tables
 
 
@@ -24,20 +49,46 @@ app = FastAPI(
 )
 
 
+# =========================
+# CORS
+# =========================
+
+frontend_url = os.getenv(
+    "FRONTEND_URL",
+    "http://localhost:5173",
+).rstrip("/")
+
+
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+if frontend_url not in allowed_origins:
+    allowed_origins.append(
+        frontend_url
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
+# =========================
+# Database
+# =========================
+
 create_tables()
 
+
+# =========================
+# Collectors
+# =========================
 
 bizinfo_collector = BizInfoCollector(
     service_key=BIZINFO_API_KEY,
@@ -48,19 +99,47 @@ kstartup_collector = KStartupCollector(
 )
 
 
-app.include_router(policies_router)
-app.include_router(recommend_router)
-app.include_router(bookmark_router)
-app.include_router(sync_router)
-app.include_router(admin_router)
+# =========================
+# Routers
+# =========================
 
+app.include_router(
+    policies_router
+)
+
+app.include_router(
+    recommend_router
+)
+
+app.include_router(
+    bookmark_router
+)
+
+app.include_router(
+    sync_router
+)
+
+app.include_router(
+    admin_router
+)
+
+
+# =========================
+# Root
+# =========================
 
 @app.get("/")
 def root() -> dict[str, str]:
     return {
-        "message": "PolicyAI API가 실행 중입니다."
+        "message": (
+            "PolicyAI API가 실행 중입니다."
+        )
     }
 
+
+# =========================
+# Raw BizInfo
+# =========================
 
 @app.get("/raw/bizinfo")
 async def get_raw_bizinfo(
@@ -85,7 +164,8 @@ async def get_raw_bizinfo(
             status_code=502,
             detail=(
                 "기업마당 API 호출에 실패했습니다. "
-                f"응답 코드: {error.response.status_code}"
+                f"응답 코드: "
+                f"{error.response.status_code}"
             ),
         ) from error
 
@@ -95,6 +175,10 @@ async def get_raw_bizinfo(
             detail=str(error),
         ) from error
 
+
+# =========================
+# Raw K-Startup
+# =========================
 
 @app.get("/raw/kstartup")
 async def get_raw_kstartup(
@@ -119,7 +203,8 @@ async def get_raw_kstartup(
             status_code=502,
             detail=(
                 "K-Startup API 호출에 실패했습니다. "
-                f"응답 코드: {error.response.status_code}"
+                f"응답 코드: "
+                f"{error.response.status_code}"
             ),
         ) from error
 
