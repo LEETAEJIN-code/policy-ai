@@ -1,10 +1,20 @@
 from datetime import date, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import (
+    func,
+    or_,
+    select,
+)
 
-from app.database.db import SessionLocal
-from app.database.policy_entity import PolicyEntity
-from app.models.policy import Policy
+from app.database.db import (
+    SessionLocal,
+)
+from app.database.policy_entity import (
+    PolicyEntity,
+)
+from app.models.policy import (
+    Policy,
+)
 
 
 class PolicyDbService:
@@ -18,7 +28,8 @@ class PolicyDbService:
         with SessionLocal() as session:
             for policy in policies:
                 unique_id = (
-                    f"{policy.source}:{policy.id}"
+                    f"{policy.source}:"
+                    f"{policy.id}"
                 )
 
                 entity = session.get(
@@ -34,53 +45,79 @@ class PolicyDbService:
                         title=policy.title,
                     )
 
-                    session.add(entity)
+                    session.add(
+                        entity
+                    )
+
                     inserted_count += 1
+
                 else:
                     updated_count += 1
 
-                entity.source_id = policy.id
-                entity.source = policy.source
-                entity.title = policy.title
+                entity.source_id = (
+                    policy.id
+                )
+
+                entity.source = (
+                    policy.source
+                )
+
+                entity.title = (
+                    policy.title
+                )
+
                 entity.organization = (
                     policy.organization
                 )
+
                 entity.description = (
                     policy.description
                 )
+
                 entity.detail_url = (
                     policy.detail_url
                 )
+
                 entity.regions = (
                     policy.regions
                 )
+
                 entity.targets = (
                     policy.targets
                 )
+
                 entity.support_types = (
                     policy.support_types
                 )
+
                 entity.keywords = (
                     policy.keywords
                 )
+
                 entity.age_min = (
                     policy.age_min
                 )
+
                 entity.age_max = (
                     policy.age_max
                 )
+
                 entity.start_date = (
                     policy.start_date
                 )
+
                 entity.end_date = (
                     policy.end_date
                 )
+
                 entity.required_documents = (
                     policy.required_documents
                 )
+
                 entity.original_target_text = (
                     policy.original_target_text
                 )
+
                 entity.original_period_text = (
                     policy.original_period_text
                 )
@@ -95,11 +132,70 @@ class PolicyDbService:
                 updated_count,
         }
 
+    def delete_closed(
+        self,
+    ) -> int:
+        """
+        종료일이 오늘보다 이전인 정책을
+        DB에서 삭제한다.
+
+        종료일이 없거나 빈 문자열인 정책은
+        상시 모집일 가능성이 있으므로 유지한다.
+        """
+
+        today = (
+            date.today()
+            .isoformat()
+        )
+
+        with SessionLocal() as session:
+            statement = (
+                select(
+                    PolicyEntity,
+                )
+                .where(
+                    PolicyEntity
+                    .end_date
+                    .is_not(None),
+
+                    PolicyEntity
+                    .end_date
+                    != "",
+
+                    PolicyEntity
+                    .end_date
+                    < today,
+                )
+            )
+
+            entities = list(
+                session
+                .scalars(statement)
+                .all()
+            )
+
+            deleted_count = len(
+                entities
+            )
+
+            for entity in entities:
+                session.delete(
+                    entity
+                )
+
+            session.commit()
+
+        return deleted_count
+
     def get_all(
         self,
         include_closed: bool = False,
     ) -> list[Policy]:
-        today = date.today().isoformat()
+        today = (
+            date.today()
+            .isoformat()
+        )
+
         with SessionLocal() as session:
             statement = select(
                 PolicyEntity,
@@ -143,11 +239,15 @@ class PolicyDbService:
             )
 
         return [
-            self.to_policy(entity)
+            self.to_policy(
+                entity
+            )
             for entity in entities
         ]
 
-    def count(self) -> int:
+    def count(
+        self,
+    ) -> int:
         with SessionLocal() as session:
             statement = select(
                 func.count(
@@ -156,35 +256,25 @@ class PolicyDbService:
             )
 
             result = session.scalar(
-                statement,
+                statement
             )
 
-            return int(result or 0)
+            return int(
+                result or 0
+            )
 
     def get_statistics(
         self,
         today: date | None = None,
     ) -> dict[str, int]:
-        """
-        정책 전체 통계를 DB에서 한 번에 계산한다.
-
-        분류 기준:
-        - available:
-          종료일이 오늘 이후인 정책
-        - deadline_approaching:
-          오늘부터 7일 안에 마감되는 정책
-        - closed:
-          종료일이 오늘보다 이전인 정책
-        - date_unknown:
-          종료일이 없거나 빈 문자열인 정책
-        """
         reference_date = (
             today
             or date.today()
         )
 
         today_string = (
-            reference_date.isoformat()
+            reference_date
+            .isoformat()
         )
 
         deadline_limit_string = (
@@ -209,93 +299,115 @@ class PolicyDbService:
                 )
             )
 
-            available_statement = select(
-                func.count(
-                    PolicyEntity.unique_id,
+            available_statement = (
+                select(
+                    func.count(
+                        PolicyEntity.unique_id,
+                    )
                 )
-            ).where(
-                PolicyEntity.end_date
-                .is_not(None),
+                .where(
+                    PolicyEntity
+                    .end_date
+                    .is_not(None),
 
-                PolicyEntity.end_date
-                != "",
+                    PolicyEntity
+                    .end_date
+                    != "",
 
-                PolicyEntity.end_date
-                >= today_string,
+                    PolicyEntity
+                    .end_date
+                    >= today_string,
+                )
             )
 
-            deadline_statement = select(
-                func.count(
-                    PolicyEntity.unique_id,
+            deadline_statement = (
+                select(
+                    func.count(
+                        PolicyEntity.unique_id,
+                    )
                 )
-            ).where(
-                PolicyEntity.end_date
-                .is_not(None),
+                .where(
+                    PolicyEntity
+                    .end_date
+                    .is_not(None),
 
-                PolicyEntity.end_date
-                != "",
+                    PolicyEntity
+                    .end_date
+                    != "",
 
-                PolicyEntity.end_date
-                >= today_string,
+                    PolicyEntity
+                    .end_date
+                    >= today_string,
 
-                PolicyEntity.end_date
-                <= deadline_limit_string,
+                    PolicyEntity
+                    .end_date
+                    <= deadline_limit_string,
+                )
             )
 
-            closed_statement = select(
-                func.count(
-                    PolicyEntity.unique_id,
+            closed_statement = (
+                select(
+                    func.count(
+                        PolicyEntity.unique_id,
+                    )
                 )
-            ).where(
-                PolicyEntity.end_date
-                .is_not(None),
+                .where(
+                    PolicyEntity
+                    .end_date
+                    .is_not(None),
 
-                PolicyEntity.end_date
-                != "",
+                    PolicyEntity
+                    .end_date
+                    != "",
 
-                PolicyEntity.end_date
-                < today_string,
+                    PolicyEntity
+                    .end_date
+                    < today_string,
+                )
             )
 
-            unknown_statement = select(
-                func.count(
-                    PolicyEntity.unique_id,
+            unknown_statement = (
+                select(
+                    func.count(
+                        PolicyEntity.unique_id,
+                    )
                 )
-            ).where(
-                unknown_condition,
+                .where(
+                    unknown_condition
+                )
             )
 
             total = int(
                 session.scalar(
-                    total_statement,
+                    total_statement
                 )
                 or 0
             )
 
             available = int(
                 session.scalar(
-                    available_statement,
+                    available_statement
                 )
                 or 0
             )
 
             deadline_approaching = int(
                 session.scalar(
-                    deadline_statement,
+                    deadline_statement
                 )
                 or 0
             )
 
             closed = int(
                 session.scalar(
-                    closed_statement,
+                    closed_statement
                 )
                 or 0
             )
 
             date_unknown = int(
                 session.scalar(
-                    unknown_statement,
+                    unknown_statement
                 )
                 or 0
             )
@@ -358,8 +470,13 @@ class PolicyDbService:
                 or []
             ),
 
-            age_min=entity.age_min,
-            age_max=entity.age_max,
+            age_min=(
+                entity.age_min
+            ),
+
+            age_max=(
+                entity.age_max
+            ),
 
             start_date=(
                 entity.start_date
@@ -400,14 +517,14 @@ class PolicyDbService:
             )
 
             entity = session.scalar(
-                statement,
+                statement
             )
 
             if entity is None:
                 return None
 
             return self.to_policy(
-                entity,
+                entity
             )
 
     def search(
@@ -440,19 +557,19 @@ class PolicyDbService:
                                 PolicyEntity
                                 .title
                                 .contains(
-                                    normalized_keyword,
+                                    normalized_keyword
                                 ),
 
                                 PolicyEntity
                                 .organization
                                 .contains(
-                                    normalized_keyword,
+                                    normalized_keyword
                                 ),
 
                                 PolicyEntity
                                 .description
                                 .contains(
-                                    normalized_keyword,
+                                    normalized_keyword
                                 ),
                             )
                         )
@@ -469,7 +586,7 @@ class PolicyDbService:
                             PolicyEntity
                             .organization
                             .contains(
-                                normalized_organization,
+                                normalized_organization
                             )
                         )
                     )
@@ -498,7 +615,9 @@ class PolicyDbService:
                             PolicyEntity
                             .regions
                             .contains(
-                                [normalized_region],
+                                [
+                                    normalized_region
+                                ]
                             )
                         )
                     )
@@ -514,7 +633,9 @@ class PolicyDbService:
                             PolicyEntity
                             .targets
                             .contains(
-                                [normalized_target],
+                                [
+                                    normalized_target
+                                ]
                             )
                         )
                     )
@@ -532,7 +653,7 @@ class PolicyDbService:
                             .contains(
                                 [
                                     normalized_support_type
-                                ],
+                                ]
                             )
                         )
                     )
@@ -572,7 +693,7 @@ class PolicyDbService:
 
             total = int(
                 session.scalar(
-                    count_statement,
+                    count_statement
                 )
                 or 0
             )
@@ -593,7 +714,7 @@ class PolicyDbService:
                     * per_page
                 )
                 .limit(
-                    per_page,
+                    per_page
                 )
             )
 
@@ -605,7 +726,9 @@ class PolicyDbService:
 
         return (
             [
-                self.to_policy(entity)
+                self.to_policy(
+                    entity
+                )
                 for entity in entities
             ],
             total,
