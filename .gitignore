@@ -1,0 +1,29 @@
+﻿# Environment
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+**/node_modules/
+
+# Build
+dist/
+**/dist/
+
+# Python virtual environments
+venv/
+**/venv/
+.venv/
+**/.venv/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Database
+*.db
+
+# Editor
+.vscode/
