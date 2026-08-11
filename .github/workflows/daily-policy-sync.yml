@@ -10,23 +10,99 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
-      - name: Trigger PolicyAI sync
+      - name: Trigger and verify PolicyAI sync
         env:
           SYNC_API_TOKEN: ${{ secrets.SYNC_API_TOKEN }}
+          API_BASE_URL: https://policy-ai-backend-u55r.onrender.com
 
         run: |
-          curl \
-            --fail-with-body \
-            --silent \
-            --show-error \
-            --retry 5 \
-            --retry-all-errors \
-            --retry-delay 15 \
-            --max-time 300 \
-            --request POST \
-            --header "X-Sync-Token: ${SYNC_API_TOKEN}" \
-            --header "Accept: application/json" \
-            "https://policy-ai-backend-u55r.onrender.com/policies/sync"
+          set -euo pipefail
+
+          echo "현재 최신 동기화 ID를 확인합니다."
+
+          latest_before="$(
+            curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --retry 5 \
+              --retry-all-errors \
+              --retry-delay 15 \
+              --max-time 300 \
+              "${API_BASE_URL}/policies/sync/latest"
+          )"
+
+          previous_id="$(
+            printf '%s' "${latest_before}" |
+            jq -r '.id // 0'
+          )"
+
+          echo "현재 동기화 ID: ${previous_id}"
+          echo "새로운 정책 동기화를 시작합니다."
+
+          trigger_response="$(
+            curl \
+              --fail-with-body \
+              --silent \
+              --show-error \
+              --retry 5 \
+              --retry-all-errors \
+              --retry-delay 15 \
+              --max-time 300 \
+              --request POST \
+              --header "X-Sync-Token: ${SYNC_API_TOKEN}" \
+              --header "Accept: application/json" \
+              "${API_BASE_URL}/policies/sync"
+          )"
+
+          echo "동기화 시작 응답:"
+          echo "${trigger_response}"
+
+          echo "동기화 완료를 기다립니다."
+
+          for attempt in $(seq 1 80); do
+            sleep 15
+
+            latest_json="$(
+              curl \
+                --fail-with-body \
+                --silent \
+                --show-error \
+                --retry 5 \
+                --retry-all-errors \
+                --retry-delay 10 \
+                --max-time 120 \
+                "${API_BASE_URL}/policies/sync/latest"
+            )"
+
+            current_id="$(
+              printf '%s' "${latest_json}" |
+              jq -r '.id // 0'
+            )"
+
+            current_status="$(
+              printf '%s' "${latest_json}" |
+              jq -r '.status // ""'
+            )"
+
+            echo "확인 ${attempt}/80 - ID: ${current_id}, 상태: ${current_status}"
+
+            if [ "${current_id}" != "${previous_id}" ]; then
+              echo "새 동기화 로그가 생성됐습니다."
+              echo "${latest_json}"
+
+              if [ "${current_status}" = "SUCCESS" ]; then
+                echo "정책 동기화가 정상 완료됐습니다."
+                exit 0
+              fi
+
+              echo "정책 동기화가 실패했습니다."
+              exit 1
+            fi
+          done
+
+          echo "20분 안에 동기화 완료 로그가 생성되지 않았습니다."
+          exit 1
