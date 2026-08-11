@@ -1,0 +1,32 @@
+name: Daily Policy Sync
+
+on:
+  schedule:
+    - cron: "15 6 * * *"
+      timezone: "Asia/Seoul"
+
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Trigger PolicyAI sync
+        env:
+          SYNC_API_TOKEN: ${{ secrets.SYNC_API_TOKEN }}
+
+        run: |
+          curl \
+            --fail-with-body \
+            --silent \
+            --show-error \
+            --retry 5 \
+            --retry-all-errors \
+            --retry-delay 15 \
+            --max-time 300 \
+            --request POST \
+            --header "X-Sync-Token: ${SYNC_API_TOKEN}" \
+            --header "Accept: application/json" \
+            "https://policy-ai-backend-u55r.onrender.com/policies/sync"

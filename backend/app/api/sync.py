@@ -1,25 +1,21 @@
 import asyncio
 import logging
+import secrets
 
-from datetime import (
-    date,
-    datetime,
-)
-
+from datetime import date, datetime
 from typing import Any
 
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Header,
     HTTPException,
     Query,
     status,
 )
 
-from app.models.sync_log import (
-    SyncLogResponse,
-)
-
+from app.core.config import SYNC_API_TOKEN
+from app.models.sync_log import SyncLogResponse
 from app.services.service_instances import (
     policy_db_service,
     policy_service,
@@ -27,19 +23,14 @@ from app.services.service_instances import (
 )
 
 
-logger = logging.getLogger(
-    __name__
-)
-
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/policies/sync",
     tags=["Policy Sync"],
 )
 
-
 PER_PAGE = 100
-
 
 sync_lock = asyncio.Lock()
 
@@ -47,10 +38,7 @@ sync_lock = asyncio.Lock()
 def get_policy_key(
     policy: Any,
 ) -> str:
-    if isinstance(
-        policy,
-        dict,
-    ):
+    if isinstance(policy, dict):
         source = str(
             policy.get(
                 "source",
@@ -85,10 +73,7 @@ def get_policy_key(
     if not policy_id:
         return ""
 
-    return (
-        f"{source}:"
-        f"{policy_id}"
-    )
+    return f"{source}:{policy_id}"
 
 
 def is_policy_active(
@@ -97,19 +82,13 @@ def is_policy_active(
     """
     이미 종료된 정책은 False.
 
-    종료일을 알 수 없거나
-    날짜 형식이 이상한 경우에는
+    종료일을 알 수 없거나 날짜 형식이 이상한 경우에는
     함부로 제거하지 않고 True.
     """
 
-    if isinstance(
-        policy,
-        dict,
-    ):
-        end_date = (
-            policy.get(
-                "end_date"
-            )
+    if isinstance(policy, dict):
+        end_date = policy.get(
+            "end_date"
         )
 
     else:
@@ -123,27 +102,18 @@ def is_policy_active(
         return True
 
     try:
-        deadline = (
-            datetime.strptime(
-                str(
-                    end_date
-                ),
-                "%Y-%m-%d",
-            )
-            .date()
-        )
+        deadline = datetime.strptime(
+            str(end_date),
+            "%Y-%m-%d",
+        ).date()
 
     except ValueError:
         return True
 
-    return (
-        deadline
-        >= date.today()
-    )
+    return deadline >= date.today()
 
 
-async def run_full_sync(
-) -> None:
+async def run_full_sync() -> None:
     async with sync_lock:
         collected_count = 0
         active_count = 0
@@ -153,9 +123,7 @@ async def run_full_sync(
 
         skipped_closed_count = 0
 
-        seen_policy_keys: set[
-            str
-        ] = set()
+        seen_policy_keys: set[str] = set()
 
         page = 1
 
@@ -166,8 +134,7 @@ async def run_full_sync(
 
             while True:
                 logger.info(
-                    "정책 수집 시작 - "
-                    "page=%s",
+                    "정책 수집 시작 - page=%s",
                     page,
                 )
 
@@ -183,44 +150,34 @@ async def run_full_sync(
 
                 if not policies:
                     logger.info(
-                        "빈 페이지 도달 - "
-                        "page=%s",
+                        "빈 페이지 도달 - page=%s",
                         page,
                     )
-
                     break
 
                 collected_count += len(
                     policies
                 )
 
-                new_policies: list[
-                    Any
-                ] = []
+                new_policies: list[Any] = []
 
                 for policy in policies:
-                    #
                     # 이미 마감된 정책은
                     # DB에 저장하지 않는다.
-                    #
                     if not is_policy_active(
                         policy
                     ):
                         skipped_closed_count += 1
-
                         continue
 
-                    policy_key = (
-                        get_policy_key(
-                            policy
-                        )
+                    policy_key = get_policy_key(
+                        policy
                     )
 
                     if not policy_key:
                         new_policies.append(
                             policy
                         )
-
                         continue
 
                     if (
@@ -241,11 +198,8 @@ async def run_full_sync(
                     new_policies
                 )
 
-                #
-                # 이번 페이지에 저장할
-                # 정책이 없더라도
-                # 다음 페이지는 확인한다.
-                #
+                # 이번 페이지에 저장할 정책이 없어도
+                # 다음 페이지는 계속 확인한다.
                 if new_policies:
                     save_result = (
                         policy_db_service
@@ -285,12 +239,8 @@ async def run_full_sync(
                         "skipped_closed=%s"
                     ),
                     page,
-                    len(
-                        policies
-                    ),
-                    len(
-                        new_policies
-                    ),
+                    len(policies),
+                    len(new_policies),
                     collected_count,
                     skipped_closed_count,
                 )
@@ -303,14 +253,11 @@ async def run_full_sync(
 
             if collected_count == 0:
                 raise RuntimeError(
-                    "수집된 정책 데이터가 "
-                    "없습니다."
+                    "수집된 정책 데이터가 없습니다."
                 )
 
-            #
             # 기존 DB에 남아 있던
             # 과거 마감 정책 정리
-            #
             deleted_closed_count = (
                 policy_db_service
                 .delete_closed()
@@ -319,15 +266,9 @@ async def run_full_sync(
             policy_service.clear_cache()
 
             sync_log_service.create_success(
-                collected_count=(
-                    active_count
-                ),
-                inserted_count=(
-                    inserted_count
-                ),
-                updated_count=(
-                    updated_count
-                ),
+                collected_count=active_count,
+                inserted_count=inserted_count,
+                updated_count=updated_count,
             )
 
             logger.info(
@@ -357,9 +298,7 @@ async def run_full_sync(
 
             try:
                 sync_log_service.create_failure(
-                    error_message=str(
-                        error
-                    ),
+                    error_message=str(error),
                 )
 
             except Exception:
@@ -370,16 +309,46 @@ async def run_full_sync(
 
 @router.post(
     "",
-    status_code=(
-        status.HTTP_202_ACCEPTED
-    ),
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def sync_policies(
     background_tasks: BackgroundTasks,
+    x_sync_token: str | None = Header(
+        default=None,
+        alias="X-Sync-Token",
+    ),
 ) -> dict[str, object]:
+    if not SYNC_API_TOKEN:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "SYNC_API_TOKEN 설정이 필요합니다."
+            ),
+        )
+
+    if (
+        not x_sync_token
+        or not secrets.compare_digest(
+            x_sync_token,
+            SYNC_API_TOKEN,
+        )
+    ):
+        raise HTTPException(
+            status_code=(
+                status.HTTP_401_UNAUTHORIZED
+            ),
+            detail=(
+                "유효하지 않은 동기화 토큰입니다."
+            ),
+        )
+
     if sync_lock.locked():
         raise HTTPException(
-            status_code=409,
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
             detail=(
                 "이미 정책 데이터 "
                 "동기화가 진행 중입니다."
@@ -402,9 +371,7 @@ async def sync_policies(
 
 @router.get(
     "/latest",
-    response_model=(
-        SyncLogResponse | None
-    ),
+    response_model=SyncLogResponse | None,
 )
 def get_latest_sync(
 ) -> SyncLogResponse | None:
@@ -416,9 +383,7 @@ def get_latest_sync(
 
 @router.get(
     "/history",
-    response_model=list[
-        SyncLogResponse
-    ],
+    response_model=list[SyncLogResponse],
 )
 def get_sync_history(
     limit: int = Query(

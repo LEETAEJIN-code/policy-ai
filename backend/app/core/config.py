@@ -19,3 +19,7 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "sqlite:///./policy_ai.db",
 )
+SYNC_API_TOKEN = os.getenv(
+    "SYNC_API_TOKEN",
+    "",
+)
