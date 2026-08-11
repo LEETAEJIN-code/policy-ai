@@ -1,9 +1,30 @@
-from sqlalchemy import JSON, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from datetime import (
+    datetime,
+    timezone,
+)
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    JSON,
+    String,
+    Text,
+)
+
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+)
+
 from app.database.db import Base
-from sqlalchemy import Column, Integer, String
-from datetime import datetime
-from sqlalchemy import DateTime
+
+
+def utc_now() -> datetime:
+    return datetime.now(
+        timezone.utc
+    )
+
 
 class PolicyEntity(Base):
     __tablename__ = "policies"
@@ -95,6 +116,17 @@ class PolicyEntity(Base):
         Text,
         nullable=True,
     )
+
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(
+            timezone=True
+        ),
+        default=utc_now,
+        nullable=False,
+        index=True,
+    )
+
+
 class Bookmark(Base):
     __tablename__ = "bookmarks"
 
@@ -113,6 +145,8 @@ class Bookmark(Base):
         String,
         nullable=False,
     )
+
+
 class PolicySyncLog(Base):
     __tablename__ = "policy_sync_logs"
 

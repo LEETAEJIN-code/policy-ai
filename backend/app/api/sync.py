@@ -1,8 +1,12 @@
 import asyncio
 import logging
 import secrets
-
-from datetime import date, datetime
+from datetime import (
+    date,
+    datetime,
+    timedelta,
+    timezone,
+)
 from typing import Any
 
 from fastapi import (
@@ -31,6 +35,8 @@ router = APIRouter(
 )
 
 PER_PAGE = 100
+
+STALE_POLICY_GRACE_DAYS = 7
 
 sync_lock = asyncio.Lock()
 
@@ -75,7 +81,28 @@ def get_policy_key(
 
     return f"{source}:{policy_id}"
 
+def get_policy_source(
+    policy: Any,
+) -> str:
+    if isinstance(
+        policy,
+        dict,
+    ):
+        source = policy.get(
+            "source",
+            "",
+        )
 
+    else:
+        source = getattr(
+            policy,
+            "source",
+            "",
+        )
+
+    return str(
+        source or ""
+    ).strip()
 def is_policy_active(
     policy: Any,
 ) -> bool:
@@ -123,7 +150,13 @@ async def run_full_sync() -> None:
 
         skipped_closed_count = 0
 
-        seen_policy_keys: set[str] = set()
+        seen_policy_keys: set[
+            str
+        ] = set()
+
+        seen_sources: set[
+            str
+        ] = set()
 
         page = 1
 
@@ -160,10 +193,22 @@ async def run_full_sync() -> None:
                 )
 
                 new_policies: list[Any] = []
-
                 for policy in policies:
+                    policy_source = (
+                        get_policy_source(
+                            policy
+                        )
+                    )
+
+                    if policy_source:
+                        seen_sources.add(
+                            policy_source
+                        )
+
+                    #
                     # 이미 마감된 정책은
                     # DB에 저장하지 않는다.
+                    #
                     if not is_policy_active(
                         policy
                     ):
@@ -263,6 +308,27 @@ async def run_full_sync() -> None:
                 .delete_closed()
             )
 
+            stale_cutoff = (
+                datetime.now(
+                    timezone.utc
+                )
+                - timedelta(
+                    days=(
+                        STALE_POLICY_GRACE_DAYS
+                    )
+                )
+            )
+
+            deleted_stale_count = (
+                policy_db_service
+                .delete_stale(
+                    last_seen_before=(
+                        stale_cutoff
+                    ),
+                    sources=seen_sources,
+                )
+            )
+
             policy_service.clear_cache()
 
             sync_log_service.create_success(
@@ -279,6 +345,9 @@ async def run_full_sync() -> None:
                     "active=%s / "
                     "closed_skipped=%s / "
                     "closed_deleted=%s / "
+                    "stale_deleted=%s / "
+                    "stale_grace_days=%s / "
+                    "observed_sources=%s / "
                     "inserted=%s / "
                     "updated=%s"
                 ),
@@ -287,6 +356,16 @@ async def run_full_sync() -> None:
                 active_count,
                 skipped_closed_count,
                 deleted_closed_count,
+                deleted_stale_count,
+                STALE_POLICY_GRACE_DAYS,
+                (
+                    ",".join(
+                        sorted(
+                            seen_sources
+                        )
+                    )
+                    or "-"
+                ),
                 inserted_count,
                 updated_count,
             )

@@ -1,4 +1,9 @@
-from datetime import date, timedelta
+from datetime import (
+    date,
+    datetime,
+    timedelta,
+    timezone,
+)
 
 from sqlalchemy import (
     func,
@@ -25,6 +30,10 @@ class PolicyDbService:
         inserted_count = 0
         updated_count = 0
 
+        seen_at = datetime.now(
+            timezone.utc
+        )
+
         with SessionLocal() as session:
             for policy in policies:
                 unique_id = (
@@ -36,7 +45,7 @@ class PolicyDbService:
                     PolicyEntity,
                     unique_id,
                 )
-
+        
                 if entity is None:
                     entity = PolicyEntity(
                         unique_id=unique_id,
@@ -121,7 +130,9 @@ class PolicyDbService:
                 entity.original_period_text = (
                     policy.original_period_text
                 )
-
+                entity.last_seen_at = (
+                    seen_at
+                )
             session.commit()
 
         return {
@@ -186,7 +197,73 @@ class PolicyDbService:
             session.commit()
 
         return deleted_count
+    def delete_stale(
+        self,
+        last_seen_before: datetime,
+        sources: set[str],
+    ) -> int:
+        """
+        정상적으로 수집된 기관의 정책 중
+        마지막 확인 시각이 기준 시각보다
+        오래된 정책을 삭제한다.
 
+        이번 동기화에서 전혀 확인되지 않은
+        기관은 외부 API 장애일 수 있으므로
+        삭제하지 않는다.
+        """
+
+        normalized_sources = {
+            source.strip()
+            for source in sources
+            if source
+            and source.strip()
+        }
+
+        if not normalized_sources:
+            return 0
+
+        with SessionLocal() as session:
+            statement = (
+                select(
+                    PolicyEntity,
+                )
+                .where(
+                    PolicyEntity
+                    .source
+                    .in_(
+                        sorted(
+                            normalized_sources
+                        )
+                    ),
+
+                    PolicyEntity
+                    .last_seen_at
+                    .is_not(None),
+
+                    PolicyEntity
+                    .last_seen_at
+                    < last_seen_before,
+                )
+            )
+
+            entities = list(
+                session
+                .scalars(statement)
+                .all()
+            )
+
+            deleted_count = len(
+                entities
+            )
+
+            for entity in entities:
+                session.delete(
+                    entity
+                )
+
+            session.commit()
+
+        return deleted_count
     def get_all(
         self,
         include_closed: bool = False,
