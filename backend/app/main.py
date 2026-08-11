@@ -36,8 +36,6 @@ from app.core.config import (
     BIZINFO_API_KEY,
     KSTARTUP_API_KEY,
 )
-from app.database import create_tables
-
 
 app = FastAPI(
     title="PolicyAI API",
@@ -77,15 +75,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# =========================
-# Database
-# =========================
-
-create_tables()
-
-
 # =========================
 # Collectors
 # =========================
