@@ -26,6 +26,7 @@ from app.services.service_instances import (
     sync_log_service,
 )
 
+from time import perf_counter
 
 logger = logging.getLogger(__name__)
 
@@ -139,17 +140,21 @@ def is_policy_active(
 
     return deadline >= date.today()
 
-
-async def run_full_sync() -> None:
+async def run_full_sync(
+) -> None:
     async with sync_lock:
+        sync_started_at = (
+            perf_counter()
+        )
+
         collected_count = 0
         active_count = 0
-
         inserted_count = 0
         updated_count = 0
 
         skipped_closed_count = 0
-
+        deleted_closed_count = 0
+        deleted_stale_count = 0
         seen_policy_keys: set[
             str
         ] = set()
@@ -331,10 +336,40 @@ async def run_full_sync() -> None:
 
             policy_service.clear_cache()
 
+            duration_seconds = round(
+    perf_counter()
+    - sync_started_at,
+    3,
+)
+
             sync_log_service.create_success(
-                collected_count=active_count,
-                inserted_count=inserted_count,
-                updated_count=updated_count,
+                raw_collected_count=(
+                    collected_count
+                ),
+                collected_count=(
+                    active_count
+                ),
+                inserted_count=(
+                    inserted_count
+                ),
+                updated_count=(
+                    updated_count
+                ),
+                closed_skipped_count=(
+                    skipped_closed_count
+                ),
+                closed_deleted_count=(
+                    deleted_closed_count
+                ),
+                stale_deleted_count=(
+                    deleted_stale_count
+                ),
+                observed_sources=(
+                    seen_sources
+                ),
+                duration_seconds=(
+                    duration_seconds
+                ),
             )
 
             logger.info(
@@ -376,8 +411,43 @@ async def run_full_sync() -> None:
             )
 
             try:
+                duration_seconds = round(
+    perf_counter()
+    - sync_started_at,
+    3,
+)
+
                 sync_log_service.create_failure(
-                    error_message=str(error),
+                    error_message=str(
+                        error
+                    ),
+                    raw_collected_count=(
+                        collected_count
+                    ),
+                    collected_count=(
+                        active_count
+                    ),
+                    inserted_count=(
+                        inserted_count
+                    ),
+                    updated_count=(
+                        updated_count
+                    ),
+                    closed_skipped_count=(
+                        skipped_closed_count
+                    ),
+                    closed_deleted_count=(
+                        deleted_closed_count
+                    ),
+                    stale_deleted_count=(
+                        deleted_stale_count
+                    ),
+                    observed_sources=(
+                        seen_sources
+                    ),
+                    duration_seconds=(
+                        duration_seconds
+                    ),
                 )
 
             except Exception:

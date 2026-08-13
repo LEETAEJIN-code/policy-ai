@@ -6,6 +6,7 @@ from datetime import (
 from sqlalchemy import (
     Column,
     DateTime,
+    Float,
     Integer,
     JSON,
     String,
@@ -166,7 +167,41 @@ class PolicySyncLog(Base):
         default=0,
         nullable=False,
     )
+    raw_collected_count = Column(
+    Integer,
+    default=0,
+    nullable=False,
+    )
 
+    closed_skipped_count = Column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+
+    closed_deleted_count = Column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+
+    stale_deleted_count = Column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+
+    observed_sources = Column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+
+    duration_seconds = Column(
+        Float,
+        default=0.0,
+        nullable=False,
+    )
     inserted_count = Column(
         Integer,
         default=0,

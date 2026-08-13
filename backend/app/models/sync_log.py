@@ -1,17 +1,37 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
 
 
 class SyncLogResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
     id: int
     status: str
-    collected_count: int
-    inserted_count: int
-    updated_count: int
-    error_message: str | None
-    created_at: datetime
 
-    model_config = {
-        "from_attributes": True,
-    }
+    raw_collected_count: int = 0
+    collected_count: int = 0
+
+    inserted_count: int = 0
+    updated_count: int = 0
+
+    closed_skipped_count: int = 0
+    closed_deleted_count: int = 0
+    stale_deleted_count: int = 0
+
+    observed_sources: list[str] = (
+        Field(
+            default_factory=list
+        )
+    )
+
+    duration_seconds: float = 0.0
+
+    error_message: str | None = None
+    created_at: datetime
